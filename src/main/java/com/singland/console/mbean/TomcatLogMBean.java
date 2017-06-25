@@ -13,5 +13,7 @@ public interface TomcatLogMBean {
 	public void clearLog(String path);
 	
 	public void deleteLog(String path);
+	
+	public void deleteLogBatch(String path);
 
 }

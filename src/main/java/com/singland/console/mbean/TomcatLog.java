@@ -5,13 +5,22 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.singland.console.mbean.utils.ShellCmdHelper;
 import com.singland.console.vo.TomcatLogFileVo;
 
 public class TomcatLog implements TomcatLogMBean {
+	
+	private static final Logger LOGGER = LoggerFactory.getLogger(TomcatLog.class);
 	
 	private String getTomcatLogDir(String subTomcatName) {
 		String dir = "";
@@ -77,6 +86,36 @@ public class TomcatLog implements TomcatLogMBean {
 		String cmd = String.format("rm -f %s", path);
 		String[] cmds = {"/bin/sh", "-c", cmd};
 		ShellCmdHelper.exec(cmds);
+	}
+
+	@Override
+	public void deleteLogBatch(String path) {
+		ExecutorService exec = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() + 1);
+		String [] pathArr = path.split(",");
+		List<String> pathList = Arrays.asList(pathArr);
+		for (String pathStr : pathList) {
+			exec.execute(new Runnable() {
+				@Override
+				public void run() {
+					String cmd = String.format("rm -f %s", pathStr);
+					String[] cmds = {"/bin/sh", "-c", cmd};
+					ShellCmdHelper.exec(cmds);
+				}
+			});
+		}
+		exec.shutdown();
+		while (true) {
+			if (exec.isTerminated()) {
+				break;
+			} else {
+				try {
+					TimeUnit.SECONDS.sleep(1);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		LOGGER.info(String.format("Logs %s was removed from server", path));
 	}
 
 }
